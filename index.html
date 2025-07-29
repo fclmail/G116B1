@@ -67,6 +67,9 @@
   <div id="log"></div>
   <script>
     let tradeBtn;
+    let provider;
+    let signer;
+    let walletAddress;
 
     const TOKEN_ADDRESSES = {
       USDC: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
@@ -83,17 +86,6 @@
     const contractAddress = "0x98FA2A393Bf5C297FE29E160B244b560a61d9976";
 
     const contractABI = [
-      // Add full ABI here when available
-    ];
-
-    const ERC20_ABI = [
-      "function balanceOf(address owner) view returns (uint256)",
-      "function approve(address spender, uint256 amount) external returns (bool)",
-      "function transfer(address to, uint amount) returns (bool)",
-      "function decimals() view returns (uint8)"
-    ];
-
-    const ROUTER_ABI = [
 	{
 		"inputs": [
 			{
@@ -290,7 +282,51 @@
 		"stateMutability": "view",
 		"type": "function"
 	}
-      ];
+];
+
+    const ERC20_ABI = [
+      "function balanceOf(address owner) view returns (uint256)",
+      "function approve(address spender, uint256 amount) external returns (bool)",
+      "function transfer(address to, uint amount) returns (bool)",
+      "function decimals() view returns (uint8)"
+    ];
+
+    const ROUTER_ABI = [
+      "function swapExactTokensForTokens(...) external returns (...)"
+    ];
+
+    document.getElementById("connectWallet").addEventListener("click", async () => {
+      if (window.ethereum) {
+        try {
+          await window.ethereum.request({ method: "eth_requestAccounts" });
+          provider = new ethers.providers.Web3Provider(window.ethereum);
+          signer = provider.getSigner();
+          walletAddress = await signer.getAddress();
+          document.getElementById("wallet").textContent = walletAddress;
+          updateBalances();
+        } catch (err) {
+          log("❌ Wallet connection failed.");
+        }
+      } else {
+        log("❌ MetaMask not found.");
+      }
+    });
+
+    async function updateBalances() {
+      try {
+        const usdc = new ethers.Contract(TOKEN_ADDRESSES.USDC, ERC20_ABI, provider);
+        const contractUSDC = await usdc.balanceOf(contractAddress);
+        const walletUSDC = await usdc.balanceOf(walletAddress);
+
+        const decimals = await usdc.decimals();
+        const format = (val) => (ethers.utils.formatUnits(val, decimals));
+
+        document.getElementById("walletBalance").textContent = format(walletUSDC);
+        document.getElementById("contractBalance").textContent = format(contractUSDC);
+      } catch (e) {
+        log("❌ Failed to load balances.");
+      }
+    }
 
     async function executeTrade(buyRouter, sellRouter, token, amountIn, symbol, profitPct) {
       log(`Executing trade for ${symbol} with amount ${amountIn}`);
